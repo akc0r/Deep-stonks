@@ -3,8 +3,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
+from tqdm import tqdm
 
-def train_epoch(model, dataloader, optimizer, criterion, device):
+def train_epoch(model, dataloader, optimizer, criterion, device, epoch, total_epochs):
     """
     Train for one epoch.
     
@@ -15,7 +16,9 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
     total_loss = 0.0
     num_batches = 0
     
-    for batch_x, batch_y in dataloader:
+    pbar = tqdm(dataloader, desc=f"Epoch {epoch}/{total_epochs} [Train]", leave=True)
+    
+    for batch_x, batch_y in pbar:
         batch_x = batch_x.to(device)
         batch_y = batch_y.to(device)
         
@@ -29,6 +32,10 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
         
         total_loss += loss.item()
         num_batches += 1
+        
+        # Update progress bar
+        avg_loss = total_loss / num_batches
+        pbar.set_postfix({'loss': f'{avg_loss:.4f}'})
     
     return total_loss / num_batches if num_batches > 0 else 0.0
 
@@ -110,8 +117,9 @@ def train(model, train_loader, val_loader, epochs, lr, device):
     }
     
     for epoch in range(epochs):
-        train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
+        train_loss = train_epoch(model, train_loader, optimizer, criterion, device, epoch+1, epochs)
         
+        print("Evaluating...")
         val_metrics = evaluate(model, val_loader, criterion, device)
         
         history['train_loss'].append(train_loss)
@@ -119,8 +127,9 @@ def train(model, train_loader, val_loader, epochs, lr, device):
         history['val_accuracy'].append(val_metrics['accuracy'])
         history['val_f1'].append(val_metrics['f1'])
         
-        print(f"Epoch {epoch+1}/{epochs}")
+        print(f"Epoch {epoch+1}/{epochs} Complete")
         print(f"  Train Loss: {train_loss:.4f}")
         print(f"  Val Loss: {val_metrics['loss']:.4f}, Acc: {val_metrics['accuracy']:.4f}, F1: {val_metrics['f1']:.4f}")
+        print("-" * 50)
     
     return history

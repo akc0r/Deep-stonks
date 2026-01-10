@@ -12,10 +12,10 @@ class DeepLOB(nn.Module):
             nn.Conv2d(in_channels=1, out_channels=16, kernel_size=(1, 2), stride=(1, 2)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding='same'), # Using 'same' padding to keep T=100
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),  # Explicit padding for kernel (4,1)
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding='same'),
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
         )
@@ -26,10 +26,10 @@ class DeepLOB(nn.Module):
             nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1, 2), stride=(1, 2)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding='same'),
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding='same'),
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
         )
@@ -37,13 +37,13 @@ class DeepLOB(nn.Module):
         # Convolutional Block 3
         # Input: (N, 16, 100, 10)
         self.conv3 = nn.Sequential(
-            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1, 10)), # Aggregates features to 1
+            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1, 10)),  # Aggregates features to 1
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding='same'),
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding='same'),
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
         )
@@ -93,27 +93,27 @@ class InceptionModule(nn.Module):
         # Note: In PyTorch Conv2d, kernel (H, W). Here (Time, Features). features dim is 1.
         # So we act on Time. Kernel (1, 1).
         self.branch1 = nn.Sequential(
-            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding='same'),
+            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding=(0, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(out_channels)
         )
         
         # Branch 2: 1x1 -> 3x1 conv
         self.branch2 = nn.Sequential(
-            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding='same'),
+            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding=(0, 0)),
             nn.LeakyReLU(0.01),
             nn.BatchNorm2d(out_channels),
-            nn.Conv2d(out_channels, out_channels, kernel_size=(3, 1), padding='same'),
+            nn.Conv2d(out_channels, out_channels, kernel_size=(3, 1), padding=(1, 0)),
             nn.LeakyReLU(0.01),
             nn.BatchNorm2d(out_channels)
         )
         
         # Branch 3: 5x1 conv
         self.branch3 = nn.Sequential(
-            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding='same'),
+            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding=(0, 0)),
             nn.LeakyReLU(0.01),
             nn.BatchNorm2d(out_channels),
-            nn.Conv2d(out_channels, out_channels, kernel_size=(5, 1), padding='same'),
+            nn.Conv2d(out_channels, out_channels, kernel_size=(5, 1), padding=(2, 0)),
             nn.LeakyReLU(0.01),
             nn.BatchNorm2d(out_channels)
         )
@@ -121,7 +121,7 @@ class InceptionModule(nn.Module):
         # Branch 4: MaxPool -> Conv
         self.branch4 = nn.Sequential(
             nn.MaxPool2d(kernel_size=(3, 1), stride=(1, 1), padding=(1, 0)),
-            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding='same'),
+            nn.Conv2d(input_channels, out_channels, kernel_size=(1, 1), padding=(0, 0)),
             nn.LeakyReLU(0.01),
             nn.BatchNorm2d(out_channels)
         )
