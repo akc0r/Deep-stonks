@@ -1,8 +1,11 @@
 # DeepLOB: Deep Convolutional Neural Networks for Limit Order Books
 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
+
 A PyTorch implementation of the DeepLOB architecture from the paper _"DeepLOB: Deep Convolutional Neural Networks for Limit Order Books"_ (Zhang et al., 2018).
 
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 .
@@ -14,65 +17,85 @@ A PyTorch implementation of the DeepLOB architecture from the paper _"DeepLOB: D
 │   └── deeplob.py            # DeepLOB architecture (CNN + Inception + LSTM)
 ├── training/
 │   └── train.py              # Training loop and evaluation metrics
-└── main.py                   # Entry point for training
+├── main.py                   # Entry point for training
+├── Dockerfile                # Docker containerization
+├── requirements.txt          # Python dependencies
+└── report.tex                # LaTeX project report
 ```
 
-## Architecture Overview
+## 🧠 Architecture Overview
 
-The model consists of:
+The DeepLOB model is a hybrid CNN-LSTM architecture:
 
-1. **3 Convolutional Blocks**: Extract features from LOB data
-   - Block 1: Level-wise extraction (combines price/volume)
-   - Block 2: Micro-structure extraction (aggregates across levels)
-   - Block 3: Global aggregation (fuses all levels)
-2. **Inception Module**: Captures multi-scale temporal dependencies with parallel branches (1x1, 3x1, 5x1 convs + MaxPool)
-3. **LSTM**: 64 hidden units for sequential modeling
-4. **Classifier**: Fully connected layer → 3 classes (Up, Down, Stationary)
+| Component            | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| **Conv Block 1**     | Level-wise extraction (1×2 kernel, combines price/volume)     |
+| **Conv Block 2**     | Micro-structure extraction (aggregates across levels)         |
+| **Conv Block 3**     | Global aggregation (1×10 kernel, fuses all levels)            |
+| **Inception Module** | Multi-scale temporal patterns (1×1, 3×1, 5×1 convs + MaxPool) |
+| **LSTM**             | 64 hidden units for sequential modeling                       |
+| **Classifier**       | Fully connected layer → 3 classes (Up, Down, Stationary)      |
 
-## Installation
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
+# Clone and setup
+git clone <repository-url>
+cd deep-stonks
+
 # Create virtual environment
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install torch numpy scikit-learn
+pip install -r requirements.txt
 ```
-
-## Usage
 
 ### Training
 
 ```bash
+# Basic training
+python main.py --epochs 10 --batch_size 64
+
+# Full training with all options
 python main.py --epochs 50 --batch_size 32 --lr 0.01 --k 10
 ```
 
-**Arguments:**
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--data_dir` | `data/BenchmarkDatasets/NoAuction/3.NoAuction_DecPre` | Path to dataset |
-| `--k` | 10 | Prediction horizon (10, 20, 50, 100) |
-| `--epochs` | 50 | Number of training epochs |
-| `--batch_size` | 32 | Batch size |
-| `--lr` | 0.01 | Learning rate |
-| `--T` | 100 | History window size |
+### Docker
 
-## Dataset
+```bash
+# Build image
+docker build -t deeplob .
+
+# Run training
+docker run -v $(pwd)/data:/app/data deeplob
+```
+
+## ⚙️ Configuration
+
+| Argument       | Default                                               | Description                          |
+| -------------- | ----------------------------------------------------- | ------------------------------------ |
+| `--data_dir`   | `data/BenchmarkDatasets/NoAuction/3.NoAuction_DecPre` | Path to dataset                      |
+| `--k`          | `10`                                                  | Prediction horizon (10, 20, 50, 100) |
+| `--epochs`     | `50`                                                  | Number of training epochs            |
+| `--batch_size` | `32`                                                  | Batch size                           |
+| `--lr`         | `0.01`                                                | Learning rate                        |
+| `--T`          | `100`                                                 | History window size                  |
+
+## 📊 Dataset
 
 The model uses the **FI-2010** benchmark dataset:
 
-- **Input**: 100 most recent LOB states, each with 40 features (10 levels × 4: Ask Price, Ask Volume, Bid Price, Bid Volume)
+- **Source**: NASDAQ Nordic (5 Finnish stocks, June 2010)
+- **Input**: 100 most recent LOB states × 40 features (10 levels × 4: Ask Price, Ask Volume, Bid Price, Bid Volume)
 - **Input Shape**: `(Batch, 1, 100, 40)`
-- **Labels**: Up (+1), Down (-1), Stationary (0) based on mid-price changes
+- **Labels**: Up (+1), Down (-1), Stationary (0) based on mid-price smoothing
 
-## Evaluation Metrics
+## 📈 Evaluation Metrics
 
-- Accuracy
-- Precision (Macro)
-- Recall (Macro)
-- F1-Score (Macro)
-
-## Reference
-
-Zhang, Z., Zohren, S., & Roberts, S. (2018). _DeepLOB: Deep Convolutional Neural Networks for Limit Order Books_. arXiv preprint arXiv:1808.03668.
+- **Accuracy**: Overall classification accuracy
+- **Precision** (Macro): Average precision across all classes
+- **Recall** (Macro): Average recall across all classes
+- **F1-Score** (Macro): Harmonic mean of precision and recall
