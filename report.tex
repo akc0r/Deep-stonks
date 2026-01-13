@@ -1,0 +1,198 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{a4paper, margin=0.75in}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\setlist{nosep}
+
+\title{DeepLOB Implementation Report: Limit Order Book Prediction with Deep Learning}
+\author{Deep Learning Project}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+DeepLOB is a hybrid deep learning architecture for limit order book (LOB) prediction, achieving $\sim$80\% F1 scores on the FI-2010 benchmark. By combining Convolutional Neural Networks (CNNs), Inception modules, and LSTMs, it effectively captures spatial LOB structure, multi-scale temporal patterns, and long-term dependencies. This report details the architecture, implementation, and results.
+
+\end{abstract}
+
+\section{Introduction and Data}
+
+\subsection{The Challenge}
+Limit Order Books contain high-dimensional, noisy, and non-stationary data (bid/ask prices and volumes across levels). DeepLOB aims to predict price direction (Up, Stationary, Down) from raw LOB snapshots without handcrafted features.
+
+\subsection{FI-2010 Dataset}
+The standard FI-2010 dataset consists of 4 million samples from 5 Finnish stocks.
+\begin{itemize}
+    \item \textbf{Input}: 100 historical snapshots $\times$ 40 features (10 levels $\times$ \{Price, Vol\} for Bid/Ask).
+    \item \textbf{Normalization}: The dataset uses static z-score normalization. However, for real-world deployment, \textbf{rolling normalization} (e.g. 5-day window) is required.
+    \item \textbf{Labels}: Derived from smoothed future returns. The recommended labeling method compares smoothed future prices to smoothed past prices to reduce noise:
+    \[l_t = \frac{m^+(t) - m^-(t)}{m^-(t)}, \quad y_t = \text{threshold}(l_t)\]
+\end{itemize}
+
+\section{Architecture and Implementation Analysis}
+
+DeepLOB processes data through three sequential stages, each addressing a specific domain challenge.
+
+\subsection{Convolutional Block: Spatial Features \& Stride}
+The first block extracts ``microstructure'' features. A key design choice is the \textbf{(1$\times$2) stride} in the first layer.
+\begin{itemize}
+    \item \textbf{Why}: Features are ordered $\{P_a, V_a, P_b, V_b\}$. A standard stride of 1 would correlate semantically unrelated pairs (e.g., $V_a$ and $P_b$).
+    \item \textbf{Solution}: Stride 2 forces the kernel to process valid $(P, V)$ pairs only, respecting the LOB's semantic structure.
+    \item \textbf{Structure}:
+    \begin{enumerate}
+        \item Conv(1$\times$2, stride 1$\times$2) $\rightarrow$ Aggregates Price/Vol.
+        \item Conv(1$\times$2, stride 1$\times$2) $\rightarrow$ Approximates the \textbf{micro-price} $p_{\text{micro}} = I \cdot p_a + (1-I) \cdot p_b$ (where $I$ is imbalance).
+        \item Conv(1$\times$10) $\rightarrow$ Global LOB summary.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Inception Module: Multi-Scale Discovery}
+Financial patterns occur at unknown timescales. Instead of selecting a fixed window, the Inception module applies parallel filters:
+\begin{itemize}
+    \item \textbf{Paths}: $1\times1$ (bottleneck), $3\times1$ (short-term), $5\times1$ (medium), $10\times1$ (long-term), and MaxPool.
+    \item \textbf{Result}: The network automatically learns which timescales are predictive by concatenating these diverse feature maps (128 features total).
+\end{itemize}
+
+\subsection{LSTM: Temporal Dependencies}
+An LSTM (64 units) processes the sequence of Inception features.
+\begin{itemize}
+    \item \textbf{Efficiency}: Using an LSTM instead of a fully connected layer reduces parameters by $\sim$10x (60k vs 800k), preventing overfitting on the relatively small FI-2010 dataset.
+    \item \textbf{Regularization}: No Batch Normalization is used due to non-stationarity. Leaky ReLU ($\alpha=0.01$) and early stopping are preferred.
+\end{itemize}
+
+\section{Experimental Setup}
+
+The loss function used the categorical cross-entropy with Adam optimizer ($lr=0.01$ and $\epsilon=1$) and batch size 32.
+
+\subsection{Implementation Checklist}
+To reproduce DeepLOB, ensure the following:
+\begin{itemize}[label=$\square$]
+    \item \textbf{Data}: Shape (N, 100, 40). Normalized (z-score), labels one-hot.
+    \item \textbf{Conv1}: Kernel (1,2), \textbf{Stride (1,2)}. (Critical!)
+    \item \textbf{Inception}: Concatenate outputs on the \textit{feature} axis.
+    \item \textbf{LSTM}: 64 units, returns last state.
+    \item \textbf{Training}: Adam ($lr=0.01$), Batch size 32, Leaky ReLU ($\alpha=0.01$).
+    \item \textbf{Validation}: Use separate validation set for early stopping.
+\end{itemize}
+
+\subsection{Train/Test Splits}
+Two setups are used:
+\begin{itemize}
+    \item \textbf{Setup 1}: Rolling window cross-validation (5 folds).
+    \item \textbf{Setup 2}: Fixed split (first 7 days train, last 3 days test) for direct comparison with baselines.
+\end{itemize}
+
+\subsection{Evaluation Metrics}
+\begin{itemize}
+    \item \textbf{Accuracy}: Overall correctness.
+    \item \textbf{Precision}: Class-wise correctness.
+    \item \textbf{Recall}: Class-wise completeness.
+    \item \textbf{F1 Score}: Macro-averaged across classes to handle class imbalance.
+    \item \textbf{Trading Simulation}: Naive strategy to assess economic value.
+\end{itemize}
+
+\section{Experimental Results}
+
+\subsection{Performance (FI-2010)}
+DeepLOB outperforms standard baselines (SVM, MLP, CNN, LSTM) and the attention-based TABL model.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Accuracy \%} & \textbf{Precision \%} & \textbf{Recall \%} & \textbf{F1 Score \%} \\
+\midrule
+SVM & - & 39.62 & 44.92 & 35.88 \\
+MLP & - & 47.81 & 60.78 & 48.27 \\
+LSTM & - & 60.77 & 75.92 & 66.33 \\
+CNN & - & 56.00 & 45.00 & 44.00 \\
+\textbf{DeepLOB} & \textbf{84.47} & \textbf{84.00} & \textbf{84.47\%} & \textbf{83.40\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Setup 2 (fixed train/test split), DeepLOB shows a \textbf{5.7\% gain} over TABL. Furthermore, naive trading simulations yield statistically significant profits ($t > 10$), confirming the model's economic value.
+
+\subsection{Transfer Learning \& Speed}
+\begin{itemize}
+    \item \textbf{Transfer}: When trained on LSE stocks and tested on \textit{unseen} stocks, performance drops only \textbf{1.55\%}, suggesting the model learns universal market physics.
+    \item \textbf{Speed}: Inference takes 0.25 ms/step on GPU, suitable for high-frequency trading.
+\end{itemize}
+
+\subsection{Why DeepLOB Works ?}
+The synergistic combination of components is critical for performance. Removing any single component significantly degrades results (Setup 2, k=10 F1):
+\begin{enumerate}
+    \item \textbf{Convolutional Layer Importance}: Removing the CNN layers and feeding raw 40-dim features to LSTM results in \textbf{66.33\%} F1 (-17\%). The CNN effectively extracts spatial structure and reduces noise before temporal processing.
+    \item \textbf{Temporal Layer Importance}: Removing the LSTM/Inception layers and using only CNNs results in \textbf{55.21\%} F1 (-28\%). Spatial features alone cannot capture the evolution of order book states.
+    \item \textbf{Multi-Scale Importance}: Replacing the Inception module with standard fixed-window convolutions (or naive attention as in TABL) results in lower performance (\textbf{77.63\%} for TABL vs 83.40\% for DeepLOB). The Inception module's ability to \emph{simultaneously} see short-term microstructure and long-term trends is a key differentiator.
+\end{enumerate}
+
+\section{Future Research Directions}
+
+Several promising extensions could address current limitations:
+
+\subsection{Bayesian DeepLOB (BDLOB)}
+DeepLOB currently provides point estimates without uncertainty. 
+BDLOB would replace standard weight layers with Bayesian layers to learn distributions over weights:
+\[ y = \mathbb{E}_w[f(x; w)], \quad w \sim p(w|\mathcal{D}) \]
+This allows the model to output confidence intervals, enabling \textbf{risk-aware position sizing} (scaling down bets when the model is uncertain).
+
+\subsection{Attention Mechanisms}
+While the Inception module uses fixed parallel kernels, an \textbf{attention mechanism} could dynamically weight different LOB levels or time steps based on the current market regime. 
+For example, in high-volatility regimes, the deep levels (L5-L10) might be more informative than the best bid/ask.
+
+\subsection{Hierarchical Temporal Modeling}
+The current LSTM has a fixed 100-step window (~20s). A hierarchical architecture could model multiple timescales explicitly:
+\begin{itemize}
+    \item \textbf{Micro-LSTM}: Captures tick-by-tick microstructure.
+    \item \textbf{Macro-LSTM}: Aggregates micro-states to capture minute-level trends or hourly regimes.
+\end{itemize}
+
+\subsection{Online Learning}
+Financial markets are non-stationary. A static model trained on 2010 data will fail in 2024. 
+Implementing \textbf{online learning} or periodic re-training pipelines is essential for production deployment to adapt to shifting market regimes.
+
+\section{Strengths and Weaknesses}
+
+\textbf{Strengths}:
+\begin{itemize}
+    \item \textbf{Accuracy}: State-of-the-art on FI-2010.
+    \item \textbf{Efficiency}: Low parameter count (60k) reduces overfitting.
+    \item \textbf{Transferability}: Works well on unseen assets.
+    \item \textbf{Design}: Architecture reflects domain knowledge (stride, timescales).
+\end{itemize}
+
+\textbf{Weaknesses}:
+\begin{itemize}
+    \item \textbf{Black Box}: Lacks intrinsic interpretability.
+    \item \textbf{Stationarity}: No explicit regime-switching mechanism.
+    \item \textbf{Sensitivity}: Requires careful tuning of hyperparameters.
+\end{itemize}
+
+
+
+\section{Conclusion}
+DeepLOB succeeds by replacing generic deep learning stacks with domain-aware components. 
+The specific use of stride for feature pairing, Inception for timescale aggregation, and LSTM for efficiency creates a robust model for LOB prediction.
+
+\section*{References}
+
+\textbf{Core Paper}: Zhang, Z., Zohren, S., \& Roberts, S. (2020). DeepLOB: Deep Convolutional Neural Networks for Limit Order Books. \textit{arXiv:1808.03668v6}.
+
+\textbf{Key Related Work}:
+\begin{itemize}
+    \item Ntakaris, A., et al. (2018). Benchmark Dataset for Mid-Price Forecasting of Limit Order Book Data.
+    \item Szegedy, C., et al. (2014). Going Deeper with Convolutions (Inception Module).
+    \item Hochreiter, S., \& Schmidhuber, J. (1997). Long Short-Term Memory.
+    \item Ribeiro, M. T., et al. (2016). ``Why Should I Trust You?'': Explaining Predictions (LIME).
+\end{itemize}
+
+\end{document}

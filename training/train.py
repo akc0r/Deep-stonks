@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
 from tqdm import tqdm
+import os
 
 def train_epoch(model, dataloader, optimizer, criterion, device, epoch, total_epochs):
     """
@@ -89,7 +90,7 @@ def evaluate(model, dataloader, criterion, device):
     }
 
 
-def train(model, train_loader, val_loader, epochs, lr, device):
+def train(model, train_loader, val_loader, epochs, lr, device, checkpoint_dir='checkpoints'):
     """
     Full training loop.
     
@@ -100,6 +101,7 @@ def train(model, train_loader, val_loader, epochs, lr, device):
         epochs: Number of training epochs.
         lr: Learning rate.
         device: torch device.
+        checkpoint_dir: Directory to save checkpoints.
     
     Returns:
         dict: Training history with losses and metrics.
@@ -108,6 +110,11 @@ def train(model, train_loader, val_loader, epochs, lr, device):
     criterion = nn.CrossEntropyLoss()
     
     model = model.to(device)
+    
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+        
+    best_val_loss = float('inf')
     
     history = {
         'train_loss': [],
@@ -130,6 +137,24 @@ def train(model, train_loader, val_loader, epochs, lr, device):
         print(f"Epoch {epoch+1}/{epochs} Complete")
         print(f"  Train Loss: {train_loss:.4f}")
         print(f"  Val Loss: {val_metrics['loss']:.4f}, Acc: {val_metrics['accuracy']:.4f}, F1: {val_metrics['f1']:.4f}")
+        
+        # Save checkpoint
+        checkpoint_path = os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch+1}.pth')
+        torch.save({
+            'epoch': epoch + 1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': train_loss,
+            'val_metrics': val_metrics
+        }, checkpoint_path)
+        print(f"  Checkpoint saved: {checkpoint_path}")
+        
+        if val_metrics['loss'] < best_val_loss:
+            best_val_loss = val_metrics['loss']
+            best_model_path = os.path.join(checkpoint_dir, 'best_model.pth')
+            torch.save(model.state_dict(), best_model_path)
+            print(f"  New best model saved: {best_model_path}")
+
         print("-" * 50)
     
     return history

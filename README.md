@@ -53,6 +53,18 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### 📥 Dataset Setup
+
+1. **Download**: Go to [Fairdata Etsin](https://etsin.fairdata.fi/dataset/73eb48d7-4dbc-4a10-a52a-da745b47a649/data) and download the dataset.
+2. **Extract**: Unzip the downloaded archive.
+3. **Organize**: Ensure the data structure matches:
+   ```bash
+   data/BenchmarkDatasets/NoAuction/
+       ├── 1.NoAuction_Zscore/
+       ├── 2.NoAuction_MinMax/
+       └── 3.NoAuction_DecPre/
+   ```
+
 ### Training
 
 ```bash

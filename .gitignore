@@ -208,3 +208,8 @@ __marimo__/
 
 paper.pdf
 data/BenchmarkDatasets
+
+*.aux
+*.fdb_latexmk
+*.fls
+*.out

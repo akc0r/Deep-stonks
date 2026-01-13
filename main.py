@@ -21,6 +21,8 @@ def main():
                         help='Learning rate')
     parser.add_argument('--T', type=int, default=100, 
                         help='History window size')
+    parser.add_argument('--checkpoint_dir', type=str, default='checkpoints',
+                        help='Directory to save checkpoints')
     
     args = parser.parse_args()
     
@@ -47,7 +49,7 @@ def main():
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
     # Train
-    history = train(model, train_loader, test_loader, epochs=args.epochs, lr=args.lr, device=device)
+    history = train(model, train_loader, test_loader, epochs=args.epochs, lr=args.lr, device=device, checkpoint_dir=args.checkpoint_dir)
     
     # Final evaluation
     print("\nFinal Evaluation:")
