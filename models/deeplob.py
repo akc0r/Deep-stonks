@@ -12,7 +12,7 @@ class DeepLOB(nn.Module):
             nn.Conv2d(in_channels=1, out_channels=16, kernel_size=(1, 2), stride=(1, 2)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),  # Explicit padding for kernel (4,1)
+            nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
@@ -37,7 +37,7 @@ class DeepLOB(nn.Module):
         # Convolutional Block 3
         # Input: (N, 16, 100, 10)
         self.conv3 = nn.Sequential(
-            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1, 10)),  # Aggregates features to 1
+            nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1, 10)),
             nn.LeakyReLU(negative_slope=0.01),
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 16, (4, 1), padding=(2, 0)),
